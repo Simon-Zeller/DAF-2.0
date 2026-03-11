@@ -1,20 +1,37 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Tech stack: Python, CrewAI, Anthropic SDK, TypeScript, React, Vite, Vitest, Playwright
+  Domain: AI-driven design system generation CLI (DAF — Design Artifact Factory)
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  Git workflow:
+  - Each task is implemented on its own branch: branch name = task ID, e.g. task/1.1-init-repo-structure
+  - Branch is created from main at task start
+  - Before merging: all checks must be green (lint + tsc + tests)
+  - Merge to main only when the task is fully complete and all checks pass
+  - Use conventional commits: feat/fix/chore/test/refactor
+
+  Code standards:
+  - Test-driven development: write tests before or alongside implementation
+  - Tests must be focused and non-bloated: one clear assertion per test case, no redundant coverage
+  - No test utilities that obscure intent — keep test code readable and direct
+  - Python: PEP 8, type hints required on all function signatures, black formatter
+  - TypeScript: strict mode, no `any`, explicit return types on exported functions
+  - No hardcoded values in source — use token constants or config
+  - All new modules must have at least one test file before the task is considered done
+
+  Quality gates (must be green before any merge):
+  - Python: ruff lint + mypy type check + pytest
+  - TypeScript: eslint + tsc --noEmit + vitest
+  - No skipped or xfail tests counted as passing
+
+rules:
+  tasks:
+    - Each task maps to one git branch (branch = task ID)
+    - Write tests first (TDD): stub the interface, write failing tests, then implement
+    - Tests must be minimal and precise — no duplicated assertions, no testing framework internals
+    - Task is only complete when lint + tsc/mypy + all tests are green
+    - Do not merge partial work; keep the branch until the full task passes all checks
+  proposal:
+    - Always include a "Non-goals" section
+    - Scope must be bounded to a single deployable increment
