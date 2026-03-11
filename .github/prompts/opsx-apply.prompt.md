@@ -8,6 +8,21 @@ Implement tasks from an OpenSpec change.
 
 **Steps**
 
+0. **Read project config**
+
+   Read `openspec/config.yaml` from the workspace root. Parse and honour every field:
+   - `context`: treat as always-on background knowledge for every implementation decision
+   - `rules.tasks`: enforce as hard constraints during step 6 (implement tasks)
+   - `rules.proposal` and any other rule keys: apply to the relevant artifacts
+
+   Common rule patterns to watch for and enforce automatically:
+   - **Branch-per-task**: if a rule says each task maps to a git branch, create the branch before touching any code and push it when quality gates pass
+   - **TDD / tests-first**: if tests are required, write the test file before the implementation file; run tests before committing
+   - **Quality gates**: if lint / type-check / test commands are defined, run them all and confirm they are green before marking any task complete or committing
+   - **Commit conventions**: apply any specified commit message format (e.g. conventional commits) to every commit
+
+   If `openspec/config.yaml` does not exist, skip this step and proceed with defaults.
+
 1. **Select the change**
 
    If a name is provided, use it. Otherwise:
@@ -59,16 +74,25 @@ Implement tasks from an OpenSpec change.
 
 6. **Implement tasks (loop until done or blocked)**
 
-   For each pending task:
-   - Show which task is being worked on
-   - Make the code changes required
-   - Keep changes minimal and focused
-   - Mark task complete in the tasks file: `- [ ]` → `- [x]`
-   - Continue to next task
+   For each pending task, apply the workflow enforced by `openspec/config.yaml` rules.
+   Default implementation loop (override any step if rules say otherwise):
+
+   a. **Branch** — if config requires a branch per task, create it now:
+      ```bash
+      git checkout main && git pull && git checkout -b <branch-name-from-config-rule>
+      ```
+   b. **Tests first** — if TDD is required, write the test file(s) before the implementation; run them and confirm they fail (red) as expected
+   c. **Implement** — make the code changes; keep them minimal and scoped to this task
+   d. **Quality gates** — run every check defined in config (e.g. `ruff`, `mypy`, `pytest`, `tsc --noEmit`, `vitest`); fix any failures before proceeding; do NOT skip gates
+   e. **Commit** — stage only this task's files; use the commit convention from config
+   f. **Push** — push the branch to the remote
+   g. **Mark done** — update the tasks file: `- [ ]` → `- [x]`
+   h. Move to next task
 
    **Pause if:**
    - Task is unclear → ask for clarification
    - Implementation reveals a design issue → suggest updating artifacts
+   - Quality gates fail and cannot be fixed without design changes → report and wait
    - Error or blocker encountered → report and wait for guidance
    - User interrupts
 
@@ -132,13 +156,14 @@ What would you like to do?
 ```
 
 **Guardrails**
+- **Always read `openspec/config.yaml` first** (step 0) — its rules override the defaults in this prompt
 - Keep going through tasks until done or blocked
 - Always read context files before starting (from the apply instructions output)
 - If task is ambiguous, pause and ask before implementing
 - If implementation reveals issues, pause and suggest artifact updates
 - Keep code changes minimal and scoped to each task
 - Update task checkbox immediately after completing each task
-- Pause on errors, blockers, or unclear requirements - don't guess
+- Pause on errors, blockers, or unclear requirements — don't guess
 - Use contextFiles from CLI output, don't assume specific file names
 
 **Fluid Workflow Integration**
