@@ -1,9 +1,9 @@
 ## 1. Project Foundation & Plugin Architecture
 
-- [ ] 1.1 Initialize repository structure: Python package layout, `pyproject.toml`, CrewAI and Anthropic SDK dependencies
-- [ ] 1.2 Implement model tier configuration: read `DAF_TIER1_MODEL`, `DAF_TIER2_MODEL`, `DAF_TIER3_MODEL` env vars with documented defaults (`claude-sonnet-4-20250514` for Tiers 1–2, `claude-haiku-4-20250414` for Tier 3)
-- [ ] 1.3 Implement plugin registry: load tool, compiler, and linter plugins by identifier from `pipeline-config.json`; fail-fast if a required plugin is not registered
-- [ ] 1.4 Define and implement the shared output folder manager: create directory on first run, validate/wipe with confirmation on dirty non-resume run, enforce file write contracts per crew
+- [x] 1.1 Initialize repository structure: Python package layout, `pyproject.toml`, CrewAI and Anthropic SDK dependencies
+- [x] 1.2 Implement model tier configuration: read `DAF_TIER1_MODEL`, `DAF_TIER2_MODEL`, `DAF_TIER3_MODEL` env vars with documented defaults (`claude-sonnet-4-20250514` for Tiers 1–2, `claude-haiku-4-20250414` for Tier 3)
+- [x] 1.3 Implement plugin registry: load tool, compiler, and linter plugins by identifier from `pipeline-config.json`; fail-fast if a required plugin is not registered
+- [x] 1.4 Define and implement the shared output folder manager: create directory on first run, validate/wipe with confirmation on dirty non-resume run, enforce file write contracts per crew
 
 ## 2. CLI
 
