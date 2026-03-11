@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling>=1.21.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "daf"
+version = "0.1.0"
+description = "Design Automation Framework — AI-orchestrated design system generation pipeline"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "crewai>=0.80.0",
+    "anthropic>=0.40.0",
+    "click>=8.1.0",
+    "rich>=13.0.0",
+    "pydantic>=2.0.0",
+    "jsonschema>=4.20.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.3.0",
+    "mypy>=1.9.0",
+]
+
+[project.scripts]
+daf = "daf.cli.main:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/daf"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+mypy_path = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
