@@ -409,7 +409,7 @@ The Governance Crew reads this file and expands it into the full governance arti
 
 ## 4. Crew Specifications
 
-10 crews. 49 agents.
+9 crews. 45 agents.
 
 ---
 
@@ -425,7 +425,7 @@ The Governance Crew reads this file and expands it into the full governance arti
 - Output: Validated, enriched `brand-profile.json`
 - ⚠ Human Gate: User must approve the finalized Brand Profile before generation begins.
 
-**Pre-pipeline Interview CLI:** A dedicated CLI tool (outside CrewAI) conducts the structured conversation with the user. It presents archetype options, collects color/typography/spacing preferences, asks about scope and framework targets, and writes a raw `brand-profile.json`. The CLI is a simple Q&A flow — all intelligence (validation, enrichment, contradiction detection, default resolution) lives in the Brand Discovery Agent. This means the interview can also be bypassed entirely by providing a hand-written `brand-profile.json`.
+**Pre-pipeline Interview CLI:** A dedicated CLI tool (outside CrewAI) conducts the structured conversation with the user. It presents archetype options, collects color/typography/spacing preferences, asks about scope, and writes a raw `brand-profile.json`. The CLI is a simple Q&A flow — all intelligence (validation, enrichment, contradiction detection, default resolution) lives in the Brand Discovery Agent. This means the interview can also be bypassed entirely by providing a hand-written `brand-profile.json`.
 
 **Agent 2: Token Foundation Agent**
 - Role: Initial token set generator
@@ -445,13 +445,13 @@ The Governance Crew reads this file and expands it into the full governance arti
 
 **Agent 5: Pipeline Configuration Agent**
 - Role: Downstream crew configurator and project scaffolder
-- Goal: Generate a `pipeline-config.json` that configures how downstream crews should operate for this specific design system (see §3.8 for schema). Derived from the Brand Profile: which quality gate thresholds to apply (stricter for AAA accessibility), which lifecycle statuses to default to (beta for Comprehensive scope's complex components), which domain categories to use for ownership mapping (inferred from component scope). This file is read by the Governance Crew (Phase 5) as its input seed — the Governance Crew then generates the full governance artifacts. Agent 5 does NOT write to `governance/` directly. Additionally, generate the project scaffolding files required by downstream crews: `tsconfig.json` (TypeScript compiler configuration), `vitest.config.ts` (test runner configuration), and `vite.config.ts` (library-mode build configuration). These must exist before Phase 2 so that all downstream crews can compile, test, and build.
+- Goal: Generate a `pipeline-config.json` that configures how downstream crews should operate for this specific design system (see §3.8 for schema). Derived from the Brand Profile: which quality gate thresholds to apply (stricter for AAA accessibility), which lifecycle statuses to default to (beta for Comprehensive scope's complex components), which domain categories to use for ownership mapping (inferred from component scope). This file is read by the Governance Crew (Phase 4b) as its input seed — the Governance Crew then generates the full governance artifacts. Agent 5 does NOT write to `governance/` directly. Additionally, generate the project scaffolding files required by downstream crews: `tsconfig.json` (TypeScript compiler configuration), `vitest.config.ts` (test runner configuration), and `vite.config.ts` (library-mode build configuration). These must exist before Phase 2 so that all downstream crews can compile, test, and build.
 - Tools: Config Generator, Threshold Calculator, Domain Inferrer, Project Scaffolder
 - Output: `pipeline-config.json`, `tsconfig.json`, `vitest.config.ts`, `vite.config.ts`
 
 **Agent 6: First Publish Agent**
 - Role: Pipeline orchestrator
-- Goal: Orchestrate the full generation pipeline by invoking all downstream crews in sequence: Token Engine Crew → Design-to-Code Crew → Component Factory Crew → Multi-FW Compiler Crew → Documentation Crew → Governance Crew → AI Semantic Layer Crew → Analytics Crew → Release Crew. Aggregates results and final status.
+- Goal: Orchestrate the full generation pipeline by invoking all downstream crews in sequence: Token Engine Crew → Design-to-Code Crew → Component Factory Crew → Documentation Crew → Governance Crew → AI Semantic Layer Crew → Analytics Crew → Release Crew. Aggregates results and final status.
 - Tools: Crew Sequencer, Result Aggregator, Status Reporter
 - ⚠ Human Gate: User reviews the final generation report and output folder before the result is considered complete.
 
@@ -557,7 +557,7 @@ The Governance Crew reads this file and expands it into the full governance arti
 
 **Agent 20: Quality Scoring Agent**
 - Role: Component health assessor
-- Goal: Compute a composite quality score (0–100) per component based on what is available at Phase 3. The composite score is a weighted average of five sub-scores: test coverage (25% weight, measured as line coverage percentage), a11y pass rate (25%, percentage of axe-core rules passing), token compliance (20%, percentage of style values sourced from tokens vs hardcoded), composition depth score (15%, primitives-only composition = full marks, direct DOM usage = penalty), and spec completeness (15%, all required fields present in YAML). Gate at **70/100 composite** — components below threshold are flagged in the quality report. Note: the Governance Crew’s Quality Gate Agent (34) enforces a separate **80% minimum test coverage** threshold as an individual gate — a component can pass the 70/100 composite but still fail the 80% coverage gate. Both gates must pass for a component to be fully accepted. Doc completeness is NOT checked here (docs don't exist until Phase 5) — it is verified later by the Drift Detection Agent (37) in Phase 6.
+- Goal: Compute a composite quality score (0–100) per component based on what is available at Phase 3. The composite score is a weighted average of five sub-scores: test coverage (25% weight, measured as line coverage percentage), a11y pass rate (25%, percentage of axe-core rules passing), token compliance (20%, percentage of style values sourced from tokens vs hardcoded), composition depth score (15%, primitives-only composition = full marks, direct DOM usage = penalty), and spec completeness (15%, all required fields present in YAML). Gate at **70/100 composite** — components below threshold are flagged in the quality report. Note: the Governance Crew’s Quality Gate Agent (30) enforces a separate **80% minimum test coverage** threshold as an individual gate — a component can pass the 70/100 composite but still fail the 80% coverage gate. Both gates must pass for a component to be fully accepted. Doc completeness is NOT checked here (docs don't exist until Phase 4a) — it is verified later by the Drift Detection Agent (33) in Phase 5.
 - Tools: Coverage Reporter, Score Calculator, Threshold Gate
 
 **Tasks:** T1: Validate specs → T2: Verify composition → T3: Scaffold/enforce a11y → T4: Re-validate patched components (compile + render check) → T5: Score and gate.
@@ -566,64 +566,33 @@ The Governance Crew reads this file and expands it into the full governance arti
 
 ---
 
-### 4.5 Multi-Framework Compiler Crew (4 agents)
-
-**Purpose:** Compile the canonical React source (in `src/`) into production-ready code for additional target frameworks. React is the primary framework — `src/` IS the React output and is always generated by Design-to-Code. The Multi-FW Compiler produces non-React targets (Vue, Angular, Lit) under `targets/{framework}/`, including both primitives and components. Each target is a complete, buildable package in the target's idiom. Verify cross-target behavioral equivalence.
-
-**Agent 21: Compilation Orchestrator Agent**
-- Role: Multi-target coordinator
-- Goal: Read target frameworks from Brand Profile. Determine which targets need compilation. Invoke target compilers in parallel. Aggregate results and report per-target status.
-- Tools: Target Registry, Parallel Scheduler, Result Aggregator
-
-**Agent 22: Target Compiler Agent(s)**
-- Role: Framework-specific code generators
-- Goal: Per-target compilation of both primitives and components: Vue 3 (SFC), Angular (standalone components), Lit (web components). React is NOT compiled here — `src/` is the React target. Each non-React output is a complete, buildable set in the target's idiom — not a thin wrapper. Compilers read both the canonical spec YAML (for structural intent: props, slots, states, composition rules) and the React source (for implementation reference). The spec is the authority on *what* the component does; the React source is a reference for *how*. Each target folder under `targets/` mirrors the `src/` structure with primitives and components.
-- Tools: Vue Compiler, Angular Compiler, Lit Compiler
-- Note: One logical agent role, instantiated per non-React target framework.
-
-**Agent 23: Isomorphic Test Agent**
-- Role: Cross-target test verifier
-- Goal: Generate framework-specific tests from the canonical test spec. Run tests per target. "Canonical pass" = all targets pass the same behavioral assertions. Report per-target pass/fail with details.
-- Tools: Test Generator, Vitest (React), Vue Test Utils, Karma (Angular), Test Comparator
-
-**Agent 24: Output Quality Agent**
-- Role: Build artifact validator
-- Goal: Verify each compiled target: tree-shakeable (no side effects at module level), SSR-compatible (no `window`/`document` at import time), no client-only assumptions, bundle size within bounds. Report escape hatch overrides.
-- Tools: Tree-shake Analyzer, SSR Checker, Bundle Reporter, Escape Hatch Tracker
-
-**Tasks:** T1: Determine targets → T2: Compile all targets in parallel → T3: Run isomorphic tests → T4: Validate output quality.
-
-**NFRs:** Per-target compilation: <3 min/component. Full rebuild: <60 min with parallelism. All web targets SSR-compatible.
-
----
-
-### 4.6 Documentation Crew (5 agents)
+### 4.5 Documentation Crew (5 agents)
 
 **Purpose:** Generate all documentation from code, tokens, and generation metadata. Documentation is a derived artifact — never separately authored.
 
-**Agent 25: Doc Generation Agent**
+**Agent 21: Doc Generation Agent**
 - Role: Automated documentation writer
-- Goal: Generate component docs per component: prop table (types, defaults, required), variant showcase (all variants with descriptions), usage examples (at least 2 per component: basic + advanced), token binding reference (which tokens the component uses). Coherent prose, not just tables. Also generate the project `docs/README.md`: installation instructions (`npm install`), quick start (import and use a component), available components list, available tokens overview, framework targets, and links to detailed docs.
+- Goal: Generate component docs per component: prop table (types, defaults, required), variant showcase (all variants with descriptions), usage examples (at least 2 per component: basic + advanced), token binding reference (which tokens the component uses). Coherent prose, not just tables. Also generate the project `docs/README.md`: installation instructions (`npm install`), quick start (import and use a component), available components list, available tokens overview, and links to detailed docs.
 - Tools: Spec-to-Doc Renderer, Prop Table Generator, Example Code Generator, README Template
 
-**Agent 26: Token Catalog Agent**
+**Agent 22: Token Catalog Agent**
 - Role: Visual token documentation builder
 - Goal: Generate the token catalog: every token with its resolved value, tier (global/semantic/component), usage context description, and visual representation (color swatches as hex + description, type scale as size progression, spacing scale as size values). Organized by category.
 - Tools: Token Value Resolver, Scale Visualizer, Usage Context Extractor
 
-**Agent 27: Generation Narrative Agent**
+**Agent 23: Generation Narrative Agent**
 - Role: Design decision narrator
 - Goal: Write `docs/decisions/generation-narrative.md`: a human-readable account of *why* the design system looks the way it does. Covers: which archetype was selected and why, which Brand Profile choices drove which token decisions, how the modular scale ratio was chosen, what accessibility tier implications affected the palette, any human gate overrides and their justification. This is the *why* document — it explains design rationale, not release contents (which is the Release Changelog Agent's job).
 - Tools: Decision Log Reader, Brand Profile Analyzer, Prose Generator
 
-**Agent 28: Decision Record Agent**
+**Agent 24: Decision Record Agent**
 - Role: ADR archivist
-- Goal: Generate Architecture Decision Records (ADRs) for every significant generation decision: archetype selection rationale, token scale algorithm choice, composition model decisions, accessibility tier implications, framework target rationale. Each ADR follows the standard format: Context → Decision → Consequences.
+- Goal: Generate Architecture Decision Records (ADRs) for every significant generation decision: archetype selection rationale, token scale algorithm choice, composition model decisions, accessibility tier implications. Each ADR follows the standard format: Context → Decision → Consequences.
 - Tools: Decision Extractor, ADR Template Generator
 
-**Agent 29: Search Index Agent**
+**Agent 25: Search Index Agent**
 - Role: Discoverability operator
-- Goal: Build a full-text search index across all docs, components, tokens, and decisions. Write `search-index.json` with: component names, prop names, token names, doc text — all searchable and filterable by category, status, and framework target.
+- Goal: Build a full-text search index across all docs, components, tokens, and decisions. Write `search-index.json` with: component names, prop names, token names, doc text — all searchable and filterable by category and status.
 - Tools: Search Index Builder, Metadata Tagger
 
 **Tasks:** T1: Generate component docs → T2: Generate token catalog → T3: Write generation narrative → T4: Generate ADRs → T5: Build search index.
@@ -632,130 +601,130 @@ The Governance Crew reads this file and expands it into the full governance arti
 
 ---
 
-### 4.7 Governance Crew (5 agents)
+### 4.6 Governance Crew (5 agents)
 
 **Purpose:** Generate a **team adoption kit** — structured configuration artifacts that define how the design system should be operated when adopted by a team. Ownership maps, quality gates, deprecation policies, contribution workflows, and RFC templates are generated alongside the code so that the DS is governance-ready from the moment it is shared. These artifacts define organizational structure and process; they become active when real team members are assigned.
 
-**Agent 30: Ownership Agent**
+**Agent 26: Ownership Agent**
 - Role: Component domain mapper
 - Goal: Generate an ownership map (`ownership.json`): assign each component and token category to a logical *domain* (e.g., "forms", "navigation", "feedback", "layout", "data-display") based on component function, relationships, and complexity. Flag components that span multiple domains. Detect orphans (components with no clear domain assignment). Domains serve as organizational blueprints — teams assign real people to domains during adoption.
 - Tools: Domain Classifier, Relationship Analyzer, Orphan Detector
 
-**Agent 31: Workflow Agent**
+**Agent 27: Workflow Agent**
 - Role: Contribution pipeline definer
 - Goal: Generate workflow definitions for the design system's operation: what pipeline a token change must follow, what pipeline a new component must follow, what quality gates apply at each step. Writes `workflow.json` as a state machine definition.
 - Tools: Workflow State Machine Generator, Gate Mapper
 
-**Agent 32: Deprecation Agent**
+**Agent 28: Deprecation Agent**
 - Role: Lifecycle policy definer
 - Goal: Generate the deprecation policy config: default grace period, warning injection rules, migration guide requirements, removal criteria. Tag any experimental or unstable components with appropriate lifecycle status (stable/beta/experimental).
 - Tools: Lifecycle Tagger, Deprecation Policy Generator, Stability Classifier
 
-**Agent 33: RFC Agent**
+**Agent 29: RFC Agent**
 - Role: Decision process definer
-- Goal: Generate RFC templates and process definitions for the design system's governance: when an RFC is required (new primitive, breaking token change, new framework target), template structure, required sections, approval criteria. Writes templates to `docs/templates/`.
+- Goal: Generate RFC templates and process definitions for the design system's governance: when an RFC is required (new primitive, breaking token change), template structure, required sections, approval criteria. Writes templates to `docs/templates/`.
 - Tools: RFC Template Generator, Process Definition Builder
 
-**Agent 34: Quality Gate Agent**
+**Agent 30: Quality Gate Agent**
 - Role: Gate threshold enforcer and test author
-- Goal: Define and enforce quality gates as individual pass/fail checks (distinct from the composite score computed by Agent 20): minimum **80% test coverage** per component (line coverage), a11y audit pass (zero critical violations), all token references resolve (no phantom refs), all components have docs (verified after Documentation Crew runs in Phase 5a), all components have at least one usage example. A component must pass both the 70/100 composite score (Agent 20) and all individual quality gates (Agent 34) to be fully accepted. Components that fail individual gates are flagged in the quality report with the specific gate that failed. Additionally, generate the project-level test suites that encode these gates as executable tests: `tests/tokens.test.ts` (token JSON validity, DTCG schema, reference resolution), `tests/a11y.test.ts` (all interactive components have ARIA roles), `tests/composition.test.ts` (all components compose from primitives), `tests/compliance.test.ts` (no hardcoded values). These tests are what `npm test` runs to verify the exit criteria.
+- Goal: Define and enforce quality gates as individual pass/fail checks (distinct from the composite score computed by Agent 20): minimum **80% test coverage** per component (line coverage), a11y audit pass (zero critical violations), all token references resolve (no phantom refs), all components have docs (verified after Documentation Crew runs in Phase 4a), all components have at least one usage example. A component must pass both the 70/100 composite score (Agent 20) and all individual quality gates (Agent 30) to be fully accepted. Components that fail individual gates are flagged in the quality report with the specific gate that failed. Additionally, generate the project-level test suites that encode these gates as executable tests: `tests/tokens.test.ts` (token JSON validity, DTCG schema, reference resolution), `tests/a11y.test.ts` (all interactive components have ARIA roles), `tests/composition.test.ts` (all components compose from primitives), `tests/compliance.test.ts` (no hardcoded values). These tests are what `npm test` runs to verify the exit criteria.
 - Tools: Gate Evaluator, Threshold Config, Report Writer, Test Suite Generator
 
 **Tasks:** T1: Assign ownership → T2: Define workflows → T3: Set deprecation policy → T4: Generate RFC templates → T5: Evaluate quality gates.
 
 ---
 
-### 4.8 Analytics Crew (5 agents)
+### 4.7 Analytics Crew (5 agents)
 
 **Purpose:** Analyze the generated design system for quality, consistency, compliance, and structural health. Produces reports.
 
-**Agent 35: Usage Tracking Agent**
+**Agent 31: Usage Tracking Agent**
 - Role: Internal usage analyzer
 - Goal: Scan all generated component source for: which tokens are actually used (vs. defined but unused), which primitives are consumed by which components, cross-component import relationships. Identify unused tokens and unreferenced primitives.
 - Tools: AST Import Scanner, Token Usage Mapper, Dependency Graph Builder
 
-**Agent 36: Token Compliance Agent**
+**Agent 32: Token Compliance Agent**
 - Role: Hardcoded value hunter
 - Goal: Static analysis of all generated source code for: hardcoded color values (hex, rgb, hsl), hardcoded spacing values (px, rem, em), hardcoded font sizes, deprecated token references. Report every violation with file, line, and suggested token replacement.
 - Tools: AST Analyzer, Token Map, Violation Reporter
 
-**Agent 37: Drift Detection Agent**
+**Agent 33: Drift Detection Agent**
 - Role: Spec ↔ code ↔ docs consistency checker and fixer
-- Goal: Compare three representations of each component: the canonical spec (YAML), the generated code (TSX), and the generated docs (Markdown). Flag any inconsistencies: a prop in the spec not present in code, a variant in code not documented, a token referenced in docs that doesn't exist. For each detected inconsistency, the agent determines the authoritative source (spec is always authoritative over code and docs) and applies automated fixes: update docs to match code, or flag code-vs-spec mismatches for the generation report (code fixes require re-running the Code Generation Agent, which is not possible in Phase 6). Write `drift-report.json` with: all detected inconsistencies, which were auto-fixed, and which require manual attention or a pipeline re-run. Auto-fixable drift (docs missing a prop that exists in code and spec) is corrected in place. Non-fixable drift (code missing a prop from spec) is reported with a recommended action ("re-run Design-to-Code Crew for component X").
+- Goal: Compare three representations of each component: the canonical spec (YAML), the generated code (TSX), and the generated docs (Markdown). Flag any inconsistencies: a prop in the spec not present in code, a variant in code not documented, a token referenced in docs that doesn't exist. For each detected inconsistency, the agent determines the authoritative source (spec is always authoritative over code and docs) and applies automated fixes: update docs to match code, or flag code-vs-spec mismatches for the generation report (code fixes require re-running the Code Generation Agent, which is not possible in Phase 5). Write `drift-report.json` with: all detected inconsistencies, which were auto-fixed, and which require manual attention or a pipeline re-run. Auto-fixable drift (docs missing a prop that exists in code and spec) is corrected in place. Non-fixable drift (code missing a prop from spec) is reported with a recommended action ("re-run Design-to-Code Crew for component X").
 - Tools: Structural Comparator, Cross-Reference Checker, Drift Reporter, Doc Patcher
 
-**Agent 38: Pipeline Completeness Agent**
+**Agent 34: Pipeline Completeness Agent**
 - Role: Pipeline completeness tracker
 - Goal: Track each component's completeness through the generation pipeline: created → spec validated → code generated → a11y passed → tests written → docs generated → fully complete. Report components stuck at any stage. Recommend interventions (e.g., "Button has code but no tests — generation may have failed at test stage").
 - Tools: Pipeline Stage Tracker, Completeness Calculator, Intervention Recommender
 
-**Agent 39: Breakage Correlation Agent**
+**Agent 35: Breakage Correlation Agent**
 - Role: Cross-component failure investigator
-- Goal: Analyze all test failures present in the final output — both exhausted-retry failures from Phases 2–4 (components that failed validation after 3 attempts) and any test failures from the Release Crew’s final `npm test` run. For each failure, trace the dependency chain across components. If Button fails, check if Card (which uses Button) also fails. Determine whether a failure is root-cause or downstream (caused by a dependency failure). Report the dependency chain and classify each failure as `root-cause` or `downstream`. This analysis feeds the generation report so the user can prioritize fixes: fixing a root-cause failure may resolve all its downstream failures.
+- Goal: Analyze all test failures present in the final output — both exhausted-retry failures from Phases 2–3 (components that failed validation after 3 attempts) and any test failures from the Release Crew’s final `npm test` run. For each failure, trace the dependency chain across components. If Button fails, check if Card (which uses Button) also fails. Determine whether a failure is root-cause or downstream (caused by a dependency failure). Report the dependency chain and classify each failure as `root-cause` or `downstream`. This analysis feeds the generation report so the user can prioritize fixes: fixing a root-cause failure may resolve all its downstream failures.
 - Tools: Failure Correlator, Dependency Chain Walker, Root Cause Analyzer
 
 **Tasks:** T1: Scan internal usage → T2: Run token compliance scan → T3: Check spec/code/docs consistency → T4: Track pipeline completeness → T5: Correlate failures.
 
 ---
 
-### 4.9 Release Crew (5 agents)
+### 4.8 Release Crew (5 agents)
 
 **Purpose:** Assemble the final output as a valid, locally installable package with proper versioning, changelog, and migration documentation.
 
-**Agent 40: Semver Agent**
+**Agent 36: Semver Agent**
 - Role: Version calculator
 - Goal: Determine the version number based on scope and completeness. v1.0.0 if all quality gates pass, v0.x.0 if experimental/incomplete. Apply conventional version semantics.
 - Tools: Gate Status Reader, Version Calculator
 
-**Agent 41: Release Changelog Agent**
+**Agent 37: Release Changelog Agent**
 - Role: Release inventory author
-- Goal: Write `docs/changelog.md`: a structured account of *what* the release contains. Covers: full component inventory (name, status, quality score), token category summary (count per category, compilation targets), framework targets included, quality gate pass/fail summary, known issues and failed components. This is the *what* document — it inventories release contents, not design rationale (which is the Generation Narrative Agent's job). Written as coherent prose grouped by category.
+- Goal: Write `docs/changelog.md`: a structured account of *what* the release contains. Covers: full component inventory (name, status, quality score), token category summary (count per category, compilation targets), quality gate pass/fail summary, known issues and failed components. This is the *what* document — it inventories release contents, not design rationale (which is the Generation Narrative Agent's job). Written as coherent prose grouped by category.
 - Tools: Component Inventory Reader, Quality Report Parser, Prose Generator
 
-**Agent 42: Codemod Agent**
+**Agent 38: Codemod Agent**
 - Role: Adoption helper generator
 - Goal: Generate example codemod scripts that demonstrate how consumers would adopt the design system by migrating from common patterns to design system components (e.g., raw `<button>` → `<Button>`, raw `<input>` → `<Input>`, hardcoded `color: #333` → `var(--color-text-primary)`). These are adoption codemods — they help teams replace ad-hoc UI code with design system equivalents. They also serve as templates for future version-to-version migration codemods when the design system evolves.
 - Tools: AST Pattern Matcher, Codemod Template Generator, Example Suite Builder
 
-**Agent 43: Publish Agent**
+**Agent 39: Publish Agent**
 - Role: Package assembler and final validator
 - Goal: Assemble the final `package.json` with correct dependencies, peer dependencies, entry points, TypeScript config, and export maps. Then execute the full validation sequence: `npm install` (verify all dependencies resolve), `npm run build` / `tsc --noEmit` (verify TypeScript compiles), and `npm test` (run all project-level and component-level tests). Parse test results. If any step fails, report which step failed and why in `reports/generation-summary.json`. This is the last agent to run before the output review gate — its pass/fail determines the final pipeline status.
 - Tools: Package.json Generator, Dependency Resolver, npm CLI, Test Result Parser
 
-**Agent 44: Rollback Agent**
+**Agent 40: Rollback Agent**
 - Role: Generation checkpoint manager (cross-cutting)
-- Goal: Maintain checkpoints at each pipeline phase. Although organizationally listed under the Release Crew, the Rollback Agent is **instantiated by the First Publish Agent (6) at pipeline start** — before any crew runs — and invoked at every phase boundary during orchestration. It is not part of the Release Crew’s task sequence and does not depend on the Release Crew being instantiated. Agent 6 holds a direct reference to Agent 44 and calls it as a utility agent outside of any crew’s task flow. Before each crew runs, the Rollback Agent snapshots the current output folder state. If a crew fails catastrophically (exhausts all retries with no recoverable output), the Rollback Agent restores the folder to the last known-good checkpoint and triggers a forward cascade: all subsequent phases must re-run from the restored state (see §3.4, Rollback cascade policy). Report what was rolled back and why.
+- Goal: Maintain checkpoints at each pipeline phase. Although organizationally listed under the Release Crew, the Rollback Agent is **instantiated by the First Publish Agent (6) at pipeline start** — before any crew runs — and invoked at every phase boundary during orchestration. It is not part of the Release Crew’s task sequence and does not depend on the Release Crew being instantiated. Agent 6 holds a direct reference to Agent 40 and calls it as a utility agent outside of any crew’s task flow. Before each crew runs, the Rollback Agent snapshots the current output folder state. If a crew fails catastrophically (exhausts all retries with no recoverable output), the Rollback Agent restores the folder to the last known-good checkpoint and triggers a forward cascade: all subsequent phases must re-run from the restored state (see §3.4, Rollback cascade policy). Report what was rolled back and why.
 - Tools: Checkpoint Creator, Restore Executor, Rollback Reporter
 
 **Tasks:** T1: Calculate version → T2: Generate changelog → T3: Generate example codemods → T4: Assemble package → T5: Run `npm install && npm run build && npm test` → T6: Validate final status.
 
 ---
 
-### 4.10 AI Semantic Layer Crew (5 agents)
+### 4.9 AI Semantic Layer Crew (5 agents)
 
 **Purpose:** Expose the design system as a machine-readable knowledge base for AI code generators and coding assistants. Output is a set of static JSON files consumable by Cursor, Copilot, Claude, or any LLM-based tool.
 
-**Agent 45: Registry Maintenance Agent**
+**Agent 41: Registry Maintenance Agent**
 - Role: Knowledge graph builder
-- Goal: Build the complete component registry (`registry/components.json`): for every component, record: all props with types and defaults, all variants, all states, all slots, all token bindings, all a11y attributes, usage examples per framework target. This is the raw structured data that Agent 49 (Context Serializer) then packages into format-specific AI context files.
+- Goal: Build the complete component registry (`registry/components.json`): for every component, record: all props with types and defaults, all variants, all states, all slots, all token bindings, all a11y attributes, usage examples. This is the raw structured data that Agent 45 (Context Serializer) then packages into format-specific AI context files.
 - Tools: Spec Indexer, Example Generator, Registry Builder
 
-**Agent 46: Token Resolution Agent**
+**Agent 42: Token Resolution Agent**
 - Role: Semantic intent mapper
 - Goal: Build the token resolution graph (`registry/tokens.json`): for every token, record: resolved value per platform, tier, semantic purpose, related tokens (same category), and natural language description. Enable AI assistants to resolve intent ("I need a muted background color") to the correct token.
 - Tools: Token Graph Traverser, Semantic Mapper, Natural Language Describer
 
-**Agent 47: Composition Constraint Agent**
+**Agent 43: Composition Constraint Agent**
 - Role: Valid tree definer
 - Goal: Build the composition rules file (`registry/composition-rules.json`): for every component, record: allowed children, forbidden nesting, required slots, maximum depth, and example valid/invalid composition trees. Enable AI assistants to generate structurally valid component trees.
 - Tools: Composition Rule Extractor, Tree Validator, Example Tree Generator
 
-**Agent 48: Validation Rule Agent**
+**Agent 44: Validation Rule Agent**
 - Role: Compliance rule exporter
 - Goal: Build the compliance rules file (`registry/compliance-rules.json`): exportable rules that an AI assistant or linter can use to check generated code against the design system. Covers: token usage, composition rules, a11y requirements, naming conventions.
 - Tools: Rule Compiler, Validation Schema Generator
 
-**Agent 49: Context Serializer Agent**
+**Agent 45: Context Serializer Agent**
 - Role: AI context packager
 - Goal: Package the registry, token graph, composition rules, and compliance rules into optimized context formats for different AI assistants: `.cursorrules` for Cursor, `copilot-instructions.md` for GitHub Copilot, and a unified `ai-context.json` for generic LLM consumption.
 - Tools: Context Formatter, Token Budget Optimizer, Multi-Format Serializer
@@ -772,16 +741,16 @@ The pipeline has exactly two human gates:
 
 | Gate | When | What the user reviews | What happens next |
 |---|---|---|---|
-| **Brand Profile Approval** | After the interview CLI runs and Agent 1 validates/enriches the profile. Before any generation begins. | The finalized `brand-profile.json`: colors, typography, spacing, scope, frameworks, themes, overrides. This is the single moment to course-correct before the pipeline commits. | On approval → full pipeline runs autonomously. On rejection → user edits the profile and re-submits. |
-| **Output Review** | After the entire pipeline completes (all 10 crews have finished). | The generation report (`reports/generation-summary.json`): which components passed/failed, quality scores, a11y audit results, test results, token compliance, known issues. Plus the full output folder. | On approval → output is final. On rejection → see granular re-run options below. |
+| **Brand Profile Approval** | After the interview CLI runs and Agent 1 validates/enriches the profile. Before any generation begins. | The finalized `brand-profile.json`: colors, typography, spacing, scope, themes, overrides. This is the single moment to course-correct before the pipeline commits. | On approval → full pipeline runs autonomously. On rejection → user edits the profile and re-submits. |
+| **Output Review** | After the entire pipeline completes (all 9 crews have finished). | The generation report (`reports/generation-summary.json`): which components passed/failed, quality scores, a11y audit results, test results, token compliance, known issues. Plus the full output folder. | On approval → output is final. On rejection → see granular re-run options below. |
 
 **No mid-pipeline stops.** Once the Brand Profile is approved, the pipeline runs to completion without human intervention. Quality issues during generation are handled by the retry protocol (§3.4): validation agents feed structured rejections back to generation agents for up to 3 attempts per component. Components that exhaust retries are marked as `failed` in the generation report — the user sees them at the output review gate, not during the run.
 
 **Output Review actions:** At the output review gate, the user has four options:
 1. **Approve** — output is final, ready to use.
 2. **Re-run full pipeline** — adjust the Brand Profile or `componentOverrides` and re-run from Phase 1.
-3. **Re-run from phase** — specify a phase number (e.g., `--from-phase 5`) to re-run from that phase onward, using existing artifacts from prior phases. Useful when tokens and components are correct but docs or governance need regeneration.
-4. **Re-run specific components** — specify component names (e.g., `--retry-components Button,DatePicker`) to re-run the Design-to-Code → Component Factory → Multi-FW Compiler pipeline for only those components, then re-run Phases 5–7 to update docs, governance, and reports. Useful when most components passed but a few failed.
+3. **Re-run from phase** — specify a phase number (e.g., `--from-phase 4`) to re-run from that phase onward, using existing artifacts from prior phases. Useful when tokens and components are correct but docs or governance need regeneration.
+4. **Re-run specific components** — specify component names (e.g., `--retry-components Button,DatePicker`) to re-run the Design-to-Code → Component Factory pipeline for only those components, then re-run Phases 4–6 to update docs, governance, and reports. Useful when most components passed but a few failed.
 
 **Why this model:** A pipeline that takes 20–60 minutes should not require someone to sit and watch it. Mid-run gates (e.g., "approve this token palette before I generate components") assume the user can meaningfully evaluate intermediate artifacts in isolation. In practice, you can only judge a design system when you see the assembled result — tokens, components, and docs together. The output review gate gives you that complete picture.
 
@@ -827,13 +796,12 @@ The single data contract between Discovery and all downstream crews:
   },
   "accessibility": "AA | AAA",
   "componentScope": "starter | standard | comprehensive",
-  "frameworks": ["react", "vue", "angular", "lit"],
   "breakpoints": {
     "strategy": "mobile-first | desktop-first",
     "count": "number (typically 3-5)"
   },
   "componentOverrides": {
-    "description": "Optional per-component design decisions. Keys are component names. Unspecified components use archetype defaults. The Decision Record Agent (28) documents which defaults were applied and why.",
+    "description": "Optional per-component design decisions. Keys are component names. Unspecified components use archetype defaults. The Decision Record Agent (24) documents which defaults were applied and why.",
     "example": {
       "DataGrid": {
         "columnResize": "boolean",
@@ -874,7 +842,7 @@ All tiers include 9 base primitives (11 exports): Box, Stack (single module expo
 
 ## 8. Exit Criteria — What "Valid" Means
 
-The generated design system **must** pass all of these without manual intervention:
+The generated design system **must** pass all of these without manual intervention. 8 Fatal + 7 Warning = 15 total criteria.
 
 | # | Check | Method | Severity |
 |---|---|---|---|
@@ -885,16 +853,18 @@ The generated design system **must** pass all of these without manual interventi
 | 5 | All foreground/background color pairs meet WCAG target | Contrast ratio calculation | Fatal |
 | 6 | CSS custom properties have no undefined references | Regex + token map | Fatal |
 | 7 | TypeScript compiles with zero errors | `tsc --noEmit` | Fatal |
-| 8 | `npm install` completes without errors | Shell | Fatal |
-| 9 | All unit tests pass | Vitest | Fatal |
+| 8 | `npm install` and `npm run build` complete without errors | Shell | Fatal |
+| 9 | All unit tests pass | Vitest | Warning |
 | 10 | No hardcoded color/spacing values in source | AST scan | Warning |
 | 11 | All interactive components have ARIA roles | AST scan | Warning |
 | 12 | All components score ≥70/100 on quality gate | Quality Scoring Agent | Warning |
 | 13 | Spec ↔ code ↔ docs consistency check passes | Drift Detection Agent | Warning |
 | 14 | Component registry JSON is valid and complete | Schema validation | Warning |
-| 15 | All framework targets build and pass tests | Per-target test runner | Fatal (per target) |
+| 15 | One or more components marked `failed` in generation summary | Generation report | Warning |
 
-Fatal = pipeline reports failure. Warning = flagged in quality report, output still usable.
+Fatal = pipeline reports failure, `isComplete: false`. Warning = flagged in quality report, output still usable, `isComplete: true`.
+
+**Note:** Test failures (criterion 9) are classified as Warning, not Fatal. In an AI-generation pipeline, some generated tests may fail despite correct component output. Test failures are surfaced prominently in the output review but do not block the pipeline from marking `isComplete: true`. Build failures (`npm install` and `npm run build`) remain Fatal.
 
 ---
 
@@ -903,11 +873,10 @@ Fatal = pipeline reports failure. Warning = flagged in quality report, output st
 | Layer | Choice | Rationale |
 |---|---|---|
 | Orchestration | **CrewAI** | Agent/crew/task model maps directly to the crew architecture. |
-| LLM | **Any OpenAI-compatible API** | CrewAI multi-provider support. Claude, GPT, local models. |
+| LLM | **Anthropic (Claude Opus, Sonnet, Haiku)** | All tiers use Anthropic models exclusively (see §3.7). |
 | Token format | **W3C DTCG** | Industry standard. Future-proof. |
 | Token compilation | **Style Dictionary** | Deterministic. Well-tested. DTCG native. |
 | Primary framework | **React + TypeScript** | Always generated. |
-| Additional frameworks | **Vue 3, Angular, Lit** | Generated per Brand Profile selection. |
 | Testing | **Vitest + @testing-library/react** | Fast, modern, standard. |
 | A11y | **axe-core** | Industry standard. Rule reference for generation, runtime for tests. |
 | Visual regression | **Playwright** | Headless rendering for screenshot baselines. |
@@ -926,13 +895,12 @@ Requirements: `python` + `node` + an LLM API key.
 | 2 | Token Engine | 5 | Token Ingestion, Token Validation, Token Compilation, Token Integrity, Token Diff |
 | 3 | Design-to-Code | 5 | Scope Classification, Intent Extraction, Code Generation, Render Validation, Result Assembly |
 | 4 | Component Factory | 4 | Spec Validation, Composition, Accessibility, Quality Scoring |
-| 5 | Multi-FW Compiler | 4 | Compilation Orchestrator, Target Compiler(s), Isomorphic Test, Output Quality |
-| 6 | Documentation | 5 | Doc Generation, Token Catalog, Generation Narrative, Decision Record, Search Index |
-| 7 | Governance | 5 | Ownership, Workflow, Deprecation, RFC, Quality Gate |
-| 8 | Analytics | 5 | Usage Tracking, Token Compliance, Drift Detection, Pipeline Completeness, Breakage Correlation |
-| 9 | Release | 5 | Semver, Release Changelog, Codemod, Publish, Rollback |
-| 10 | AI Semantic Layer | 5 | Registry Maintenance, Token Resolution, Composition Constraint, Validation Rule, Context Serializer |
-| | **TOTAL** | **49** | |
+| 5 | Documentation | 5 | Doc Generation, Token Catalog, Generation Narrative, Decision Record, Search Index |
+| 6 | Governance | 5 | Ownership, Workflow, Deprecation, RFC, Quality Gate |
+| 7 | Analytics | 5 | Usage Tracking, Token Compliance, Drift Detection, Pipeline Completeness, Breakage Correlation |
+| 8 | Release | 5 | Semver, Release Changelog, Codemod, Publish, Rollback |
+| 9 | AI Semantic Layer | 5 | Registry Maintenance, Token Resolution, Composition Constraint, Validation Rule, Context Serializer |
+| | **TOTAL** | **45** | |
 
 ---
 
@@ -943,10 +911,9 @@ Requirements: `python` + `node` + an LLM API key.
 | LLM generates components that don't compile | High | High | Retry protocol (§3.4): validation agents feed structured rejections back to generation agents for up to 3 attempts. Components that exhaust retries are flagged in report, not silently dropped. Rollback Agent preserves checkpoints. |
 | Generated tests are trivial / meaningless | Med | Med | Code Generation Agent prompt includes test quality rubric. Quality Scoring Agent penalizes low coverage. |
 | Token scales produce aesthetically poor results | Med | Low | Archetype defaults are pre-tuned. User reviews full output at the output review gate. Re-run with adjusted Brand Profile if needed. |
-| 49 agents introduce excessive LLM cost per run | Med | Med | Tiered model assignment: fast/cheap for classification agents, powerful for generation agents. Cache deterministic tool outputs. |
-| Cross-framework compilation produces divergent behavior | Med | High | Isomorphic Test Agent runs identical assertions per target. Output Quality Agent validates SSR + tree-shaking. |
-| Pipeline takes too long for interactive use | Med | Med | Starter scope targets <30 min. Parallel target compilation. Checkpoint system enables resume-on-failure. |
-| CrewAI sequential overhead for 10 crews | Low | Low | If overhead is excessive, crew-to-crew handoff can be replaced with direct function calls. Agent logic is portable. |
+| 45 agents introduce excessive LLM cost per run | Med | Med | Tiered model assignment: fast/cheap for classification agents, powerful for generation agents. Cache deterministic tool outputs. |
+| Pipeline takes too long for interactive use | Med | Med | Starter scope targets <30 min. Checkpoint system enables resume-on-failure. |
+| CrewAI sequential overhead for 9 crews | Low | Low | If overhead is excessive, crew-to-crew handoff can be replaced with direct function calls. Agent logic is portable. |
 | Style Dictionary version incompatibility | Low | Med | Pin version. W3C DTCG format is tool-agnostic. |
 
 ---
@@ -969,7 +936,7 @@ Requirements: `python` + `node` + an LLM API key.
 
 **DS Archetype:** Pre-configured starting template (Enterprise B2B, Consumer B2C, Mobile-First, Multi-Brand) for bootstrapping.
 
-**Canonical Spec:** Framework-agnostic component specification (YAML) used as the single source for multi-target compilation.
+**Canonical Spec:** Framework-agnostic component specification (YAML) used as the single source of truth for code generation.
 
 **Semver:** Semantic Versioning (MAJOR.MINOR.PATCH).
 
@@ -1009,9 +976,8 @@ The CLI presents a structured, sequential interview in the terminal. Each step c
 | 7 | **Themes** — modes (light/dark/high-contrast), default, brands (if multi-brand) | No | Derived from archetype |
 | 8 | **Accessibility** — AA or AAA | No | AA |
 | 9 | **Component scope** — starter, standard, comprehensive | No | Derived from archetype |
-| 10 | **Framework targets** — React (always), plus Vue, Angular, Lit | No | React only |
-| 11 | **Breakpoints** — strategy and count | No | Derived from archetype |
-| 12 | **Component overrides** — per-component customization (advanced, optional) | No | None |
+| 10 | **Breakpoints** — strategy and count | No | Derived from archetype |
+| 11 | **Component overrides** — per-component customization (advanced, optional) | No | None |
 
 For each non-required step, the CLI shows the archetype-derived default and allows the user to accept (Enter) or override. Color inputs accept both hex values (`#1a73e8`) and natural language descriptions (`"a professional blue"`).
 
@@ -1023,7 +989,6 @@ The CLI performs basic structural validation before writing the raw `brand-profi
 - Scale ratio must be a positive number between 1.0 and 2.0.
 - Base size must be a positive integer between 8 and 24.
 - Archetype must be one of the defined values.
-- Framework list must include "react".
 
 All semantic validation (contradiction detection, consistency checking, default enrichment) is deferred to the Brand Discovery Agent (1) — the CLI does not duplicate agent intelligence.
 
