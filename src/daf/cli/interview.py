@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Iterator, Optional, Sequence
 
 
@@ -113,17 +114,25 @@ class BrandInterviewer:
     output_lines:
         Optional list that collects all printed output (used in tests to
         inspect prompt text without capturing stdout globally).
+    session_dir:
+        When provided, the interviewer writes ``.daf-session.json`` to this
+        directory after each completed step and deletes it on completion.
+        Supports task 2.10 (interview session persistence).  If a session file
+        already exists in *session_dir* the saved answers are pre-loaded so
+        the interview resumes from the last completed step.
     """
 
     def __init__(
         self,
         input_lines: Optional[Sequence[str]] = None,
         output_lines: Optional[list[str]] = None,
+        session_dir: Optional[Path] = None,
     ) -> None:
         self._input_iter: Optional[Iterator[str]] = (
             iter(input_lines) if input_lines is not None else None
         )
         self._output: list[str] = output_lines if output_lines is not None else []
+        self._session_dir = session_dir
 
     # ------------------------------------------------------------------
     # I/O helpers
@@ -163,72 +172,116 @@ class BrandInterviewer:
 
     def run(self) -> InterviewResult:
         """Run all interview steps and return the collected ``InterviewResult``."""
-        self._print("\n=== DAF Brand Interview ===\n")
+        from daf.cli.session import InterviewSession, load_session
 
-        name = self._ask("1/19  Brand name:")
+        # Load any existing partial session.
+        saved: Optional[InterviewSession] = None
+        if self._session_dir is not None:
+            saved = load_session(self._session_dir)
 
-        archetype = self._ask_validated(
+        # answers[i] stores the answer to step i+1 (0-indexed).
+        answers: list[Optional[str]] = list(saved.answers) if saved else [None] * 19
+        resume_from = (saved.last_step + 1) if saved else 1
+
+        def _get(step: int, prompt: str) -> str:
+            """Return saved answer for *step* or ask the user."""
+            idx = step - 1
+            if answers[idx] is not None:
+                return answers[idx]  # type: ignore[return-value]
+            value = self._ask(prompt)
+            answers[idx] = value
+            if self._session_dir is not None:
+                InterviewSession(answers=list(answers), last_step=step).save(
+                    self._session_dir
+                )
+            return value
+
+        def _get_validated(step: int, prompt: str, valid: set[str]) -> str:
+            idx = step - 1
+            if answers[idx] is not None and answers[idx] in valid:
+                return answers[idx]  # type: ignore[return-value]
+            value = self._ask_validated(prompt, valid)
+            answers[idx] = value
+            if self._session_dir is not None:
+                InterviewSession(answers=list(answers), last_step=step).save(
+                    self._session_dir
+                )
+            return value
+
+        def _get_color(step: int, prompt: str) -> str:
+            idx = step - 1
+            if answers[idx] is not None:
+                return answers[idx]  # type: ignore[return-value]
+            value = self._ask_color(prompt)
+            answers[idx] = value
+            if self._session_dir is not None:
+                InterviewSession(answers=list(answers), last_step=step).save(
+                    self._session_dir
+                )
+            return value
+
+        if resume_from > 1:
+            self._print(f"\n=== DAF Brand Interview (resuming from step {resume_from}) ===\n")
+        else:
+            self._print("\n=== DAF Brand Interview ===\n")
+
+        name = _get(1, "1/19  Brand name:")
+
+        archetype = _get_validated(
+            2,
             "2/19  Brand archetype "
             "(enterprise-b2b / consumer-b2c / mobile-first / multi-brand-platform / custom):",
             VALID_ARCHETYPES,
         )
 
-        primary_color = self._ask_color(
-            "3/19  Primary colour (hex / rgb / hsl — e.g. #0A2463):"
-        )
-        secondary_color = self._ask_color(
-            "4/19  Secondary colour:"
-        )
-        neutral_color = self._ask_color(
-            "5/19  Neutral colour:"
+        primary_color = _get_color(3, "3/19  Primary colour (hex / rgb / hsl — e.g. #0A2463):")
+        secondary_color = _get_color(4, "4/19  Secondary colour:")
+        neutral_color = _get_color(5, "5/19  Neutral colour:")
+
+        font_heading = _get(6, "6/19  Heading font family (e.g. Inter):")
+        font_body = _get(7, "7/19  Body font family (e.g. Inter):")
+        font_scale = _get(
+            8, "8/19  Font scale (e.g. major-third, minor-third, perfect-fourth):"
         )
 
-        font_heading = self._ask("6/19  Heading font family (e.g. Inter):")
-        font_body = self._ask("7/19  Body font family (e.g. Inter):")
-        font_scale = self._ask(
-            "8/19  Font scale (e.g. major-third, minor-third, perfect-fourth):"
-        )
+        spacing_scale = _get(9, "9/19  Base spacing unit (e.g. 4px, 8px):")
 
-        spacing_scale = self._ask("9/19  Base spacing unit (e.g. 4px, 8px):")
-
-        component_scope = self._ask_validated(
+        component_scope = _get_validated(
+            10,
             "10/19 Component scope (starter / standard / comprehensive):",
             VALID_COMPONENT_SCOPES,
         )
 
-        border_radius = self._ask(
-            "11/19 Border radius style (e.g. none, small, medium, large, full):"
+        border_radius = _get(
+            11, "11/19 Border radius style (e.g. none, small, medium, large, full):"
         )
-        elevation_scale = self._ask(
-            "12/19 Elevation scale (e.g. 3-step, 5-step, flat):"
-        )
-        motion_duration = self._ask(
-            "13/19 Default motion duration (e.g. 200ms):"
-        )
-        motion_easing = self._ask(
-            "14/19 Default motion easing (e.g. ease-in-out, ease-out):"
-        )
+        elevation_scale = _get(12, "12/19 Elevation scale (e.g. 3-step, 5-step, flat):")
+        motion_duration = _get(13, "13/19 Default motion duration (e.g. 200ms):")
+        motion_easing = _get(14, "14/19 Default motion easing (e.g. ease-in-out, ease-out):")
 
-        breakpoints_raw = self._ask(
-            "15/19 Breakpoints as comma-separated list (e.g. sm:640px,md:768px,lg:1024px):"
+        breakpoints_raw = _get(
+            15,
+            "15/19 Breakpoints as comma-separated list (e.g. sm:640px,md:768px,lg:1024px):",
         )
         breakpoints = [b.strip() for b in breakpoints_raw.split(",") if b.strip()]
 
-        accessibility_level = self._ask_validated(
+        accessibility_level = _get_validated(
+            16,
             "16/19 Accessibility level (AA / AAA):",
             VALID_ACCESSIBILITY_LEVELS,
         )
 
-        theme_modes_raw = self._ask(
-            "17/19 Theme modes as comma-separated list (e.g. light,dark,high-contrast):"
+        theme_modes_raw = _get(
+            17,
+            "17/19 Theme modes as comma-separated list (e.g. light,dark,high-contrast):",
         )
         theme_modes = [t.strip() for t in theme_modes_raw.split(",") if t.strip()]
 
-        theme_default = self._ask("18/19 Default theme (e.g. light):")
+        theme_default = _get(18, "18/19 Default theme (e.g. light):")
 
-        # Multi-brand
-        multi_brand_raw = self._ask(
-            "19/19 Is this a multi-brand design system? (yes / no):"
+        # Multi-brand (step 19)
+        multi_brand_raw = _get(
+            19, "19/19 Is this a multi-brand design system? (yes / no):"
         )
         multi_brand_names: list[str] = []
         if multi_brand_raw.strip().lower() in {"yes", "y"}:
@@ -243,6 +296,10 @@ class BrandInterviewer:
                 multi_brand_names.append(brand_id)
 
         self._print("\n=== Interview complete ===\n")
+
+        # Delete session file on successful completion (spec requirement).
+        if self._session_dir is not None:
+            InterviewSession.delete(self._session_dir)
 
         return InterviewResult(
             name=name,

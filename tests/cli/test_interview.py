@@ -192,3 +192,112 @@ def test_interviewer_multi_brand(monkeypatch: object) -> None:
     interviewer = BrandInterviewer(input_lines=answers)
     result = interviewer.run()
     assert result.multi_brand_names == ["brand-a", "brand-b"]
+
+
+# ---------------------------------------------------------------------------
+# Session persistence integration (task 2.10)
+# ---------------------------------------------------------------------------
+
+
+def _minimal_answers() -> list[str]:
+    return [
+        "Acme",
+        "enterprise-b2b",
+        "#0A2463",
+        "#3E92CC",
+        "#D8D8D8",
+        "Inter",
+        "Inter",
+        "major-third",
+        "4px",
+        "standard",
+        "medium",
+        "3-step",
+        "200ms",
+        "ease-in-out",
+        "sm:640px",
+        "AA",
+        "light",
+        "light",
+        "no",
+    ]
+
+
+def test_session_file_deleted_after_completion(tmp_path: object) -> None:
+    """Session file must be removed once the interview completes successfully."""
+    from pathlib import Path
+    from daf.cli.session import SESSION_FILE
+
+    out = Path(str(tmp_path))
+    interviewer = BrandInterviewer(input_lines=_minimal_answers(), session_dir=out)
+    interviewer.run()
+    assert not (out / SESSION_FILE).exists()
+
+
+def test_session_file_written_during_interview(tmp_path: object) -> None:
+    """A session file is created during the interview (before completion)."""
+    from pathlib import Path
+    from daf.cli.session import SESSION_FILE
+
+    out = Path(str(tmp_path))
+    answers = _minimal_answers()
+    session_written: list[bool] = []
+
+    class _CapturingInterviewer(BrandInterviewer):
+        def _ask(self, prompt: str) -> str:
+            # After the first question is answered, check for session file
+            result = super()._ask(prompt)
+            if not session_written and (out / SESSION_FILE).exists():
+                session_written.append(True)
+            return result
+
+    interviewer = _CapturingInterviewer(input_lines=answers, session_dir=out)
+    interviewer.run()
+    assert session_written, "Session file was never created during the interview"
+
+
+def test_resume_from_session_uses_saved_answers(tmp_path: object) -> None:
+    """BrandInterviewer started with a partial session resumes from saved step."""
+    from pathlib import Path
+    from daf.cli.session import InterviewSession, SESSION_FILE
+
+    out = Path(str(tmp_path))
+    # Simulate: steps 1–5 already done
+    saved_answers: list[str | None] = [None] * 19
+    saved_answers[0] = "Acme"
+    saved_answers[1] = "enterprise-b2b"
+    saved_answers[2] = "#0A2463"
+    saved_answers[3] = "#3E92CC"
+    saved_answers[4] = "#D8D8D8"
+    session = InterviewSession(answers=saved_answers, last_step=5)
+    session.save(out)
+
+    # Only provide answers for steps 6–19
+    remaining_answers = [
+        "Inter",      # 6 heading font
+        "Inter",      # 7 body font
+        "major-third",  # 8 font scale
+        "4px",        # 9 spacing
+        "standard",   # 10 scope
+        "medium",     # 11 border-radius
+        "3-step",     # 12 elevation
+        "200ms",      # 13 duration
+        "ease-in-out",  # 14 easing
+        "sm:640px",   # 15 breakpoints
+        "AA",         # 16 accessibility
+        "light",      # 17 modes
+        "light",      # 18 default
+        "no",         # 19 multi-brand
+    ]
+    interviewer = BrandInterviewer(
+        input_lines=remaining_answers, session_dir=out
+    )
+    result = interviewer.run()
+
+    # Answers from session should be preserved
+    assert result.name == "Acme"
+    assert result.primary_color == "#0A2463"
+    assert result.neutral_color == "#D8D8D8"
+    # Session file must be deleted on completion
+    assert not (out / SESSION_FILE).exists()
+
